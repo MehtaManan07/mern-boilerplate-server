@@ -14,7 +14,7 @@ exports.signup = (req, res) => {
     const token = jwt.sign(
       { name, email, password },
       process.env.JWT_ACCOUNT_ACTIVATION,
-      { expiresIn: "20m" }
+      { expiresIn: "60m" }
     );
     const emailData = {
         from: process.env.EMAIL_FROM,
@@ -33,3 +33,28 @@ exports.signup = (req, res) => {
     })
   });
 };
+
+exports.accountActivation = (req,res) => {
+    const { token } = req.body
+    if( token ) {
+        jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION, function(err, decoded) {
+            if(err) {
+                console.log('jwt verify in account verification error', err)
+                return res.status(401).json({ msg: 'Expired link. Signup again' })
+            }
+            const { name, email, password } = jwt.decode(token)
+
+            const user = new User({ name, email, password })
+
+            user.save((err, user) => {
+                if(err) {
+                    console.log('save user to database activation error')
+                    res.status(401).json({ msg: 'Error saving user in database. Try again please' })
+                }
+                return res.json({ message: 'Success signup', user })
+            })
+        })
+    } else {
+        return res.json({ message: 'Something went wrong. Try again' })
+    }
+}
