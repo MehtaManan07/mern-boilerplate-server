@@ -2,11 +2,7 @@ const express = require('express');
 
 const app = express()
 
-app.get('/', (req,res) => {
-    res.json({
-        msg: 'Successgul'
-    })
-})
+app.use('/api/', require('./routes/auth'))
 
 const port = process.env.PORT || 5000
 
