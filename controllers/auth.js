@@ -4,70 +4,83 @@ const sgMail = require("@sendgrid/mail");
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 exports.signup = (req, res) => {
-  const { email, password, name } = req.body;
+  const { name, email, password } = req.body;
+
   User.findOne({ email }).exec((err, user) => {
     if (user) {
-      return res.json(400).json({
+      return res.status(400).json({
         error: "Email is taken",
       });
     }
+
     const token = jwt.sign(
       { name, email, password },
       process.env.JWT_ACCOUNT_ACTIVATION,
-      { expiresIn: "60m" }
+      { expiresIn: "10m" }
     );
+
     const emailData = {
       from: process.env.EMAIL_FROM,
       to: email,
       subject: `Account activation link`,
       html: `
-        <h3> Please use the following link to activate your account </h3>
-        <p> ${process.env.CLIENT_URL}/auth/activate/${token} </p>
-        <hr />
-        <p> Ohh bhai, aavo aavo, welcome </p>
-        `,
+              <h1>Please use the following link to activate your account</h1>
+              <p>${process.env.CLIENT_URL}/auth/activate/${token}</p>
+              <hr />
+              <p>This email may contain sensetive information</p>
+              <p>${process.env.CLIENT_URL}</p>
+          `,
     };
+
     sgMail
       .send(emailData)
-      .then((sent) =>
-        res.json({
-          message: `Sent successfully to ${email}. Follow the instructions to activate your account`,
-        })
-      )
+      .then((sent) => {
+        // console.log('SIGNUP EMAIL SENT', sent)
+        return res.json({
+          message: `Email has been sent to ${email}. Follow the instruction to activate your account`,
+        });
+      })
       .catch((err) => {
-        console.log(err);
-        res.json({ err });
+        // console.log('SIGNUP EMAIL SENT ERROR', err)
+        return res.json({
+          message: err.message,
+        });
       });
   });
 };
 
 exports.accountActivation = (req, res) => {
   const { token } = req.body;
+
   if (token) {
-    jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION, function (
-      err,
-      decoded
-    ) {
-      if (err) {
-        console.log("jwt verify in account verification error", err);
-        return res.status(401).json({ msg: "Expired link. Signup again" });
-      }
-      const { name, email, password } = jwt.decode(token);
+      jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION, function(err, decoded) {
+          if (err) {
+              console.log('JWT VERIFY IN ACCOUNT ACTIVATION ERROR', err);
+              return res.status(401).json({
+                  error: 'Expired link. Signup again'
+              });
+          }
 
-      const user = new User({ name, email, password });
+          const { name, email, password } = jwt.decode(token);
 
-      user.save((err, user) => {
-        if (err) {
-          console.log("save user to database activation error");
-          res
-            .status(401)
-            .json({ msg: "Error saving user in database. Try again please" });
-        }
-        return res.json({ message: "Success signup", user });
+          const user = new User({ name, email, password });
+
+          user.save((err, user) => {
+              if (err) {
+                  console.log('SAVE USER IN ACCOUNT ACTIVATION ERROR', err);
+                  return res.status(401).json({
+                      error: 'Error saving user in database. Try signup again'
+                  });
+              }
+              return res.json({
+                  message: 'Signup success. Please signin.'
+              });
+          });
       });
-    });
   } else {
-    return res.json({ message: "Something went wrong. Try again" });
+      return res.json({
+          message: 'Something went wrong. Try again.'
+      });
   }
 };
 
