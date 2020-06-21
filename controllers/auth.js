@@ -1,5 +1,7 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const expressJwt = require("express-jwt");
+// Sendgrid
 const sgMail = require("@sendgrid/mail");
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -53,34 +55,37 @@ exports.accountActivation = (req, res) => {
   const { token } = req.body;
 
   if (token) {
-      jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION, function(err, decoded) {
-          if (err) {
-              console.log('JWT VERIFY IN ACCOUNT ACTIVATION ERROR', err);
-              return res.status(401).json({
-                  error: 'Expired link. Signup again'
-              });
-          }
+    jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION, function (
+      err,
+      decoded
+    ) {
+      if (err) {
+        console.log("JWT VERIFY IN ACCOUNT ACTIVATION ERROR", err);
+        return res.status(401).json({
+          error: "Expired link. Signup again",
+        });
+      }
 
-          const { name, email, password } = jwt.decode(token);
+      const { name, email, password } = jwt.decode(token);
 
-          const user = new User({ name, email, password });
+      const user = new User({ name, email, password });
 
-          user.save((err, user) => {
-              if (err) {
-                  console.log('SAVE USER IN ACCOUNT ACTIVATION ERROR', err);
-                  return res.status(401).json({
-                      error: 'Error saving user in database. Try signup again'
-                  });
-              }
-              return res.json({
-                  message: 'Signup success. Please signin.'
-              });
+      user.save((err, user) => {
+        if (err) {
+          console.log("SAVE USER IN ACCOUNT ACTIVATION ERROR", err);
+          return res.status(401).json({
+            error: "Error saving user in database. Try signup again",
           });
+        }
+        return res.json({
+          message: "Signup success. Please signin.",
+        });
       });
+    });
   } else {
-      return res.json({
-          message: 'Something went wrong. Try again.'
-      });
+    return res.json({
+      message: "Something went wrong. Try again.",
+    });
   }
 };
 
@@ -109,5 +114,28 @@ exports.signin = (req, res) => {
       token,
       user: { _id, name, email, role },
     });
+  });
+};
+
+exports.requireSign = expressJwt({
+  secret: process.env.JWT_SECRET,
+});
+
+exports.adminMiddleware = (req, res, next) => {
+  User.findById({ _id: req.user._id }).exec((err, user) => {
+      if (err || !user) {
+          return res.status(400).json({
+              error: 'User not found'
+          });
+      }
+
+      if (user.role !== 'admin') {
+          return res.status(400).json({
+              error: 'Admin resource. Access denied.'
+          });
+      }
+
+      req.profile = user;
+      next();
   });
 };
