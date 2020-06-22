@@ -1,12 +1,14 @@
 const express = require("express");
 const router = express.Router();
 
+
 // import controller
 const {
   signup,
   accountActivation,
   signin,
   forgotPassword,
+  googleLogin,
   resetPassword,
 } = require("../controllers/auth");
 
@@ -35,5 +37,6 @@ router.put(
   runValidation,
   resetPassword
 );
+router.post('/google-login', googleLogin);
 
 module.exports = router;
